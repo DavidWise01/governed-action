@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Governed Action — four Lean proofs, kernel-checkable</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  :root{
+    --bg:#0a0612; --bg2:#130a20; --cyan:#22e5ff; --magenta:#ff2d95; --orange:#ff8a3d;
+    --ink:#eae6f5; --dim:#8f84ad; --line:rgba(34,229,255,.16);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;line-height:1.6;overflow-x:hidden}
+  .grid-floor{position:fixed;left:0;right:0;bottom:0;height:46vh;z-index:0;pointer-events:none;
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:48px 48px;transform:perspective(320px) rotateX(62deg);transform-origin:bottom;
+    mask-image:linear-gradient(to top,black,transparent 92%)}
+  .scanlines{position:fixed;inset:0;z-index:5;pointer-events:none;opacity:.05;
+    background:repeating-linear-gradient(0deg,#fff 0px,#fff 1px,transparent 1px,transparent 3px)}
+  .glow{position:fixed;top:-20%;left:50%;transform:translateX(-50%);width:120vw;height:60vh;z-index:0;pointer-events:none;
+    background:radial-gradient(ellipse at center, rgba(255,45,149,.14), rgba(34,229,255,.08) 40%, transparent 70%)}
+  .wrap{position:relative;z-index:1;max-width:900px;margin:0 auto;padding:44px 22px 90px}
+  h1{font-family:Orbitron,sans-serif;font-weight:900;font-size:clamp(26px,5vw,42px);letter-spacing:.04em;margin:0;
+    color:var(--cyan);text-shadow:0 0 18px rgba(34,229,255,.55),0 0 40px rgba(34,229,255,.25)}
+  .sub{max-width:70ch;color:var(--ink);font-size:16px;margin:14px 0 0}
+  .byline{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--orange);margin:12px 0 0}
+  h2{font-family:Orbitron,sans-serif;font-weight:700;font-size:19px;letter-spacing:.02em;color:var(--magenta);
+    text-shadow:0 0 12px rgba(255,45,149,.4);margin:0 0 10px}
+  section{margin:40px 0 0;padding:22px 22px 24px;border:1px solid var(--line);border-radius:6px;
+    background:rgba(255,255,255,.02);backdrop-filter:blur(1px)}
+  .notice{border-color:rgba(255,138,61,.35);background:rgba(255,138,61,.04)}
+  .notice h2{color:var(--orange);text-shadow:0 0 12px rgba(255,138,61,.4)}
+  .explain{max-width:76ch;color:var(--ink);font-size:15px}
+  pre.code{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.55;color:#c9e8ff;
+    background:#050309;border:1px solid var(--line);border-radius:4px;padding:16px;overflow-x:auto;margin:14px 0}
+  pre.code .kw{color:var(--cyan)} pre.code .cm{color:var(--dim)}
+  .scope{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--dim);border-left:2px solid var(--orange);
+    padding:10px 14px;margin:14px 0 0;background:rgba(255,138,61,.03)}
+  .demo{margin:16px 0 0;padding:14px 16px;border:1px dashed var(--line);border-radius:4px;background:rgba(34,229,255,.03)}
+  .demo h3{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--cyan);margin:0 0 10px}
+  label{display:block;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--dim);margin:8px 0 3px}
+  input[type=number]{width:110px;background:#0d0716;border:1px solid var(--line);color:var(--ink);
+    font-family:'JetBrains Mono',monospace;font-size:13px;padding:6px 8px;border-radius:3px}
+  button{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.04em;color:var(--bg);
+    background:var(--cyan);border:none;padding:9px 16px;border-radius:3px;cursor:pointer;margin-top:10px}
+  button:hover{background:#5eefff}
+  .verdict{font-family:'JetBrains Mono',monospace;font-size:13px;margin-top:12px;padding:9px 12px;border-radius:3px}
+  .verdict.hold{color:var(--cyan);border:1px solid var(--cyan);background:rgba(34,229,255,.06)}
+  .verdict.break{color:var(--magenta);border:1px solid var(--magenta);background:rgba(255,45,149,.06)}
+  .graphrow{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0}
+  .node{font-family:'JetBrains Mono',monospace;font-size:12px;padding:8px 12px;border:1px solid var(--line);
+    border-radius:20px;cursor:pointer;user-select:none;background:rgba(255,255,255,.02)}
+  .node.top{border-color:var(--magenta);color:var(--magenta);box-shadow:0 0 10px rgba(255,45,149,.3)}
+  footer{margin:44px 0 0;color:var(--dim);font-size:13px;max-width:74ch}
+  footer a{color:var(--cyan)}
+  .fn{color:var(--orange)}
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="grid-floor"></div>
+<div class="scanlines"></div>
+
+<div class="wrap">
+  <h1>GOVERNED ACTION</h1>
+  <p class="sub">Four Lean 4 theorem files on the legitimacy of authority, the residues of attestation, the achievability of containment, and the information-theoretic floor of trust — kernel-checkable, no <span class="fn">mathlib</span>, no <span class="fn">sorry</span>.</p>
+  <p class="byline">David Lee Wise · TriPod LLC · CC-BY-ND-4.0</p>
+
+  <section class="notice">
+    <h2>What this page is, and is not</h2>
+    <p class="explain">Below is the actual Lean&nbsp;4 source of four theorem files, unedited. No Lean toolchain was available in the environment that built this page, so nothing here was re-run against the Lean kernel to produce this page — there is no "compiles&nbsp;✓" badge, because that would not be true. What can honestly be said: every line was read, no file contains <span class="fn">sorry</span> or an admitted gap, and the syntax uses only Lean&nbsp;4 core (no <span class="fn">mathlib</span> import). Verify it yourself: <span class="fn">lean governance.lean</span>, and so on for the other three. Each file ends with its own "Honest scope" note, kept intact below — read those before the theorem, not after.</p>
+  </section>
+
+  <section id="governance">
+    <h2>I · Governance — no complete, legitimate authority</h2>
+    <p class="explain">A locus is <em>legitimate</em> only if it has a distinct legitimate governor. From that one recurrence, three things follow: an ungoverned "top" is never legitimate (the <b>dogmatic horn</b> — authority that answers to nothing is self-asserted, not earned); a locus that only governs itself can't be legitimate either (the <b>cycle horn</b> — reflexive authority fails the distinctness requirement); and if legitimacy is defined as the smallest predicate closed under that recurrence with no base case, it's <em>empty</em> — nothing satisfies it (the <b>regress horn</b>). No structure is both complete and fully legitimate. A companion lemma: an agent that sets its own boundary always weakly prefers to widen it — self-set boundaries are ratchets, not walls.</p>
+    <pre class="code">theorem top_not_legit
+    {G : Locus &rarr; Locus &rarr; Prop} {L : Locus &rarr; Prop}
+    (hL : IsLegitimacyPred G L) {T : Locus} (hT : IsTop G T) : &not; L T := by
+  intro hLT
+  obtain &lang;x, _, hGxT, _&rang; := hL T hLT
+  exact hT x hGxT
+
+theorem no_self_ground
+    {G : Locus &rarr; Locus &rarr; Prop} {L : Locus &rarr; Prop}
+    (hL : IsLegitimacyPred G L) {y : Locus}
+    (hLy : L y) (onlySelf : &forall; x, G x y &rarr; x = y) : False := by
+  obtain &lang;x, hne, hGxy, _&rang; := hL y hLy
+  exact hne (onlySelf x hGxy)
+
+theorem regress_empty {G : Locus &rarr; Locus &rarr; Prop} (y : Locus) :
+    &not; LegitLFP G y := by
+  intro h; induction h with
+  | step _ _ _ ih =&gt; exact ih
+
+theorem value_monotone
+    {A : Type} {u : A &rarr; Nat} {B B' : A &rarr; Prop}
+    (hsub : &forall; a, B a &rarr; B' a)
+    {aStar : A} (hB : B aStar) (hmax : &forall; a, B a &rarr; u a &le; u aStar) :
+    &exist; b, B' b &and; &forall; a, B a &rarr; u a &le; u b :=
+  &lang;aStar, hsub aStar hB, hmax&rang;</pre>
+    <div class="scope">Honest scope (from governance.lean): Lemma 1 (pre-action/set-level timing) is a timing argument over an execution model, not formalized as a finite proposition. T1's "infinite ⇒ inert" step encodes a semantics of "authority is exercised" that is a modeling choice. What IS checked: a top is not legitimate, self-grounding fails, least-fixed-point legitimacy is empty. These are proofs relative to the definitions — they assert nothing about any real system.</div>
+    <div class="demo">
+      <h3>finite illustration — try to name a legitimate top</h3>
+      <p class="explain" style="font-size:13px">Four loci, each governed by the next. Click one to mark it "the top" (ungoverned). The proof says: whatever you pick, it can't be legitimate.</p>
+      <div class="graphrow" id="govNodes"></div>
+      <div class="verdict" id="govVerdict">pick a node above</div>
+    </div>
+  </section>
+
+  <section id="attestation">
+    <h2>II · Attestation — the three ways exteriority relocates</h2>
+    <p class="explain">A sound attestation discharges containment with no requirement that the checker be exterior to the selector — so where does "exterior" actually have to live? Three places, and removing any one collapses the certificate: (i) the <b>spec</b> — if the agent can weaken its own spec, it ratchets to the vacuous predicate <span class="fn">True</span>, which every trace satisfies, including violating ones; (ii) the <b>trust root</b> — if the verifier's own soundness is only self-attested, the evaluator's own rule (reject self-attested evidence) blocks acceptance outright; (iii) <b>timing</b> — a verdict computed after an irreversible action never enters the containment predicate, so it can't retroactively make a violating trace contained. Given all three exterior conditions, containment is sufficient — necessity is carried by these three residues.</p>
+    <pre class="code">theorem vacuous_certifies_nothing
+    {A : Type} (admStrict : A &rarr; Prop) (tr : Trace A)
+    (someViolation : &exist; t, &not; admStrict (tr t)) :
+    Contained (fun _ =&gt; True) tr &and; &not; Contained admStrict tr := by
+  refine &lang;fun _ =&gt; trivial, ?_&rang;
+  obtain &lang;t&#8320;, hv&rang; := someViolation
+  intro h; exact hv (h t&#8320;)
+
+theorem root_selfattested_fails
+    {Ev : Type} {AccE selfAttested : Ev &rarr; Prop}
+    (C4 : &forall; e, selfAttested e &rarr; &not; AccE e)
+    {soundnessClaim : Ev} (hself : selfAttested soundnessClaim) :
+    &not; AccE soundnessClaim :=
+  C4 soundnessClaim hself
+
+theorem postaction_insufficient
+    {A : Type} (adm : A &rarr; Prop) (tr : Trace A)
+    {t&#8320; : Nat} (violation : &not; adm (tr t&#8320;)) :
+    &not; Contained adm tr := by
+  intro h; exact violation (h t&#8320;)</pre>
+    <div class="scope">Honest scope (from attestation.lean): discharge and root_selfattested_fails are near-definitional (modus ponens/tollens on the stated hypotheses). vacuous_certifies_nothing fixes that a self-chosen spec certifies nothing informative — it does not fix the magnitude of the resulting gap. The full timing/latency execution model is not formalized. relocation proves sufficiency of the three exterior conditions; necessity is carried by the residue lemmas, not bundled into one iff.</div>
+  </section>
+
+  <section id="achievability">
+    <h2>III · Achievability — pre-action gating into an adequate boundary</h2>
+    <p class="explain">Given a fixed, exterior-supplied verifier that is sound and complete for a boundary <span class="fn">B</span>, and <span class="fn">B</span> is adequate (a subset of the target set <span class="fn">A*</span>): gating every action through the verifier before it executes puts every executed action in <span class="fn">A*</span> — containment, with no exterior information entering per-action. Two side conditions make the gate honest rather than trivial: completeness means it never blocks an admissible action (liveness — no false rejections), and soundness means it genuinely rejects anything outside <span class="fn">B</span> (non-vacuity — the gate actually bites).</p>
+    <pre class="code">theorem achiev_correct
+    {A : Type} (V : A &rarr; Bool) (B Astar : A &rarr; Prop)
+    (Vsound : &forall; a, V a = true &rarr; B a)
+    (Badeq : &forall; a, B a &rarr; Astar a)
+    (tr : Trace A) (gated : &forall; t, V (tr t) = true) :
+    &forall; t, Astar (tr t) := by
+  intro t; exact Badeq _ (Vsound _ (gated t))
+
+theorem achiev_live
+    {A : Type} (V : A &rarr; Bool) (B : A &rarr; Prop)
+    (Vcomplete : &forall; a, B a &rarr; V a = true)
+    {a : A} (hB : B a) : V a = true := Vcomplete a hB
+
+theorem rejects_excluded
+    {A : Type} (V : A &rarr; Bool) (B : A &rarr; Prop)
+    (Vsound : &forall; a, V a = true &rarr; B a)
+    {a : A} (hnotB : &not; B a) : V a = false := by
+  cases hva : V a with
+  | false =&gt; rfl
+  | true =&gt; exact absurd (Vsound a hva) hnotB</pre>
+    <div class="scope">Honest scope (from achievability.lean): this is the ZERO-ERROR idealization — Vsound/Vcomplete are exact. A real proof system has soundness error 2⁻λ per proof; over T actions the union bound gives total error ≤ T·2⁻λ. Cost (that exterior information = log₂N + λ + 0) is an accounting argument, not a theorem, made in the companion note. Achievability is relative to the existence of such a proof system — it is not constructed from scratch here.</div>
+  </section>
+
+  <section id="trust_floor">
+    <h2>IV · The trust floor — soundness forces a minimum entropy</h2>
+    <p class="explain">If the best key-guessing forgery succeeds on at least one key out of the secret's support, and soundness bounds any forgery to at most a 2⁻λ fraction of that support, then the support must have size at least 2^λ — the secret's min-entropy is at least λ bits. A claimed soundness of 2⁻λ is not free: it costs a trust anchor with at least λ bits of uncertainty behind it, or it's impossible.</p>
+    <pre class="code">theorem trust_floor (NK lam fcount : Nat)
+    (hguess : 1 &le; fcount)
+    (hsound : fcount * 2 ^ lam &le; NK) :
+    2 ^ lam &le; NK := by
+  obtain &lang;f', hf'&rang; : &exist; f', fcount = f' + 1 := &lang;fcount - 1, by omega&rang;
+  have hexp : fcount * 2 ^ lam = f' * 2 ^ lam + 2 ^ lam := by
+    rw [hf', Nat.add_mul, Nat.one_mul]
+  omega
+
+theorem short_key_breaks_soundness (NK lam fcount : Nat)
+    (hguess : 1 &le; fcount) (hshort : NK &lt; 2 ^ lam) :
+    &not; (fcount * 2 ^ lam &le; NK) := by
+  intro hsound
+  have := trust_floor NK lam fcount hguess hsound
+  omega</pre>
+    <div class="scope">Honest scope (from trust_floor.lean): the load-bearing assumption is "an adversary who knows the secret K can forge" — real for MACs / designated-verifier / secret-coin proofs / TEE keys, NOT for computationally-sound public-coin systems like SNARKs, where a key-knowing adversary still can't forge without breaking a hardness assumption. That regime's trust floor is the hardness assumption, not bits of entropy. The general statement (optimal guessing probability = 2⁻H∞ for arbitrary distributions) is standard analysis, stated but not formalized here — only the uniform counting core is.</div>
+    <div class="demo">
+      <h3>check the bound yourself</h3>
+      <label for="nk">support size N<sub>K</sub></label>
+      <input type="number" id="nk" value="256" min="1">
+      <label for="lam">λ (claimed soundness bits)</label>
+      <input type="number" id="lam" value="8" min="0" max="30">
+      <label for="fc">fcount (forgery success count, ≥1)</label>
+      <input type="number" id="fc" value="1" min="1">
+      <button id="checkTrust">check trust_floor</button>
+      <div class="verdict" id="trustVerdict">—</div>
+    </div>
+  </section>
+
+  <footer>
+    <p>Companion: <a href="https://davidwise01.github.io/the-diagonal/">不動点 · The Diagonal</a> — AVAN's inverse, on what happens with no exterior verifier at all. AI ETHICS &amp; GOVERNANCE (GOV) · az1 corpus, Earth station.</p>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var govNodesEl = document.getElementById('govNodes');
+  var govVerdictEl = document.getElementById('govVerdict');
+  var names = ['A','B','C','D'];
+  names.forEach(function(n, i){
+    var d = document.createElement('div');
+    d.className = 'node';
+    d.textContent = n + ' governs ' + names[(i+1)%4];
+    d.dataset.n = n;
+    d.addEventListener('click', function(){
+      document.querySelectorAll('#govNodes .node').forEach(function(x){x.classList.remove('top')});
+      d.classList.add('top');
+      govVerdictEl.className = 'verdict break';
+      govVerdictEl.textContent = n + ' marked ungoverned (a "top"). By top_not_legit: ' + n + ' cannot be legitimate — it has no distinct legitimate governor of its own. Every choice fails the same way.';
+    });
+    govNodesEl.appendChild(d);
+  });
+
+  function checkTrust(){
+    var NK = parseInt(document.getElementById('nk').value, 10);
+    var lam = parseInt(document.getElementById('lam').value, 10);
+    var fc = parseInt(document.getElementById('fc').value, 10);
+    var v = document.getElementById('trustVerdict');
+    if (!(fc >= 1)) { v.className='verdict break'; v.textContent='hguess fails: fcount must be ≥ 1.'; return; }
+    var pow = Math.pow(2, lam);
+    var soundHolds = (fc * pow) <= NK;
+    if (!soundHolds) {
+      v.className = 'verdict break';
+      v.textContent = 'hsound fails: fcount·2^λ = ' + (fc*pow) + ' > N_K = ' + NK + '. This soundness claim is not even consistent with these numbers — short_key_breaks_soundness applies.';
+      return;
+    }
+    var floorHolds = pow <= NK;
+    v.className = floorHolds ? 'verdict hold' : 'verdict break';
+    v.textContent = 'hsound holds (' + (fc*pow) + ' ≤ ' + NK + '). trust_floor concludes: 2^λ = ' + pow + ' ≤ N_K = ' + NK + ' — ' + (floorHolds ? 'confirmed, exactly as proved.' : 'ERROR — this should be unreachable.');
+  }
+  document.getElementById('checkTrust').addEventListener('click', checkTrust);
+  checkTrust();
+})();
+</script>
+</body>
+</html>
